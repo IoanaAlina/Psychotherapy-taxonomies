@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Substance Use Disorder — Treatment Component Taxonomy</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1018; --surface: #151922; --border: #1f2535;
+  --text: #e4e8f2; --muted: #68728f; --accent: #b8c4ff;
+}
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; padding-bottom: 60px;
+}
+header { width: 100%; max-width: 1500px; padding: 36px 48px 24px; }
+header h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  letter-spacing: -0.4px; line-height: 1.25;
+}
+header p { font-size: 0.82rem; color: var(--muted); margin-top: 6px; font-weight: 300; }
+
+.layout {
+  display: flex; flex-direction: row; align-items: flex-start;
+  gap: 40px; width: 100%; max-width: 1500px; padding: 0 48px;
+}
+#chart-wrap { position: relative; flex: 0 0 auto; }
+#center-label {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center; pointer-events: none; width: 150px;
+}
+#center-title {
+  font-family: 'DM Serif Display', serif; font-size: 1rem;
+  font-style: italic; color: var(--accent); line-height: 1.3;
+}
+
+#info-panel {
+  flex: 1; min-width: 270px; max-width: 400px;
+  position: sticky; top: 32px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 26px; min-height: 380px;
+}
+.panel-idle { color: var(--muted); font-size: 0.83rem; line-height: 1.7; }
+.panel-idle strong {
+  display: block; font-size: 0.67rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 9px;
+}
+
+/* Component panel */
+.cp { display: none; flex-direction: column; }
+.cp.on { display: flex; }
+.cp-tag {
+  display: inline-block; padding: 3px 11px; border-radius: 20px;
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: 13px; width: fit-content;
+}
+.cp-abbr {
+  font-family: 'DM Serif Display', serif; font-size: 2.1rem;
+  font-style: italic; line-height: 1; margin-bottom: 4px;
+}
+.cp-full { font-size: 0.93rem; font-weight: 500; color: var(--accent); margin-bottom: 16px; line-height: 1.35; }
+.sec-label {
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.cp-def { font-size: 0.81rem; line-height: 1.65; color: #a4aec8; font-weight: 300; margin-bottom: 16px; }
+.cp-examples { padding-top: 14px; border-top: 1px solid var(--border); }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.tag {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px;
+  font-size: 0.71rem; color: var(--muted); font-weight: 300;
+}
+
+/* Group panel */
+.gp { display: none; flex-direction: column; }
+.gp.on { display: flex; }
+.gp-title {
+  font-family: 'DM Serif Display', serif; font-size: 1.4rem;
+  line-height: 1.2; margin-bottom: 14px;
+}
+.gp-members { display: flex; flex-direction: column; gap: 5px; }
+.gp-member {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 11px; border-radius: 8px; border: 1px solid; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.gp-member:hover { opacity: 0.7; }
+.gp-abbr-text { font-weight: 600; font-size: 0.8rem; width: 52px; flex-shrink: 0; }
+.gp-name { font-size: 0.76rem; color: #a4aec8; flex: 1; line-height: 1.3; }
+
+path.comp-arc, path.grp-arc { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Substance Use Disorder —<br>Psychosocial Treatment Component Taxonomy</h1>
+  <p>Hover the inner ring to explore thematic groups · hover the outer ring for definitions and protocol elements</p>
+</header>
+
+<div class="layout">
+  <div id="chart-wrap">
+    <div id="center-label">
+      <div id="center-title">SUD<br>Treatment</div>
+    </div>
+  </div>
+
+  <div id="info-panel">
+    <div id="idle-msg" class="panel-idle">
+      <strong>How to explore</strong>
+      Hover the <em>inner ring</em> to see a thematic group and its components.<br><br>
+      Hover the <em>outer ring</em> to see a component's full name, definition, and protocol elements from manuals.
+    </div>
+    <div id="cp-panel" class="cp">
+      <span class="cp-tag" id="cp-tag"></span>
+      <div class="cp-abbr" id="cp-abbr"></div>
+      <div class="cp-full" id="cp-full"></div>
+      <div class="sec-label">Definition</div>
+      <div class="cp-def" id="cp-def"></div>
+      <div class="cp-examples">
+        <div class="sec-label">Protocol elements</div>
+        <div class="tags" id="cp-tags"></div>
+      </div>
+    </div>
+    <div id="gp-panel" class="gp">
+      <div class="gp-title" id="gp-title"></div>
+      <div class="gp-members" id="gp-members"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const groups = [
+  { id:0, label:"Common Elements",               color:"#5d85c3", members:["TA","PSED","CF","RP","GOAL"] },
+  { id:1, label:"Substance-Related Symptoms",     color:"#df7060", members:["FA","CRAV","COG","PSS","EMOT"] },
+  { id:2, label:"Behavioral Techniques",          color:"#5cb896", members:["BA","RPB","RT","SG"] },
+  { id:3, label:"Motivation, Identity & Meaning", color:"#c47ed4", members:["AMB","MEAN","IDSELF","MMT"] },
+  { id:4, label:"Interpersonal Domain",           color:"#e09a3e", members:["INT","SS","PEER","FC","VOC"] },
+  { id:5, label:"Subpopulation-Related Issues",   color:"#5dbfd4", members:["COMORB","SUB"] },
+];
+
+const components = [
+  { abbr:"RP",     full:"Relapse Prevention",
+    def:"Develop strategies to recognise and manage high-risk situations and maintain abstinence. Includes trigger identification, crisis management planning, and skill rehearsal aimed at preventing relapse.",
+    examples:["relapse prevention","crisis management plan","functional relapse analysis","graduated exposure to risky situations","coping skills for managing relapse","self-monitoring of craving"] },
+  { abbr:"FA",     full:"Functional Analysis",
+    def:"Understanding substance-use patterns by examining antecedents, beliefs, and consequences (ABC model). Includes exploring links between emotions and drug use and identifying use triggers.",
+    examples:["functional analysis","functional analysis of substance use","identify thoughts as antecedents of use","explore relationship between emotions & drug use","CCRT framework"] },
+  { abbr:"RPB",    full:"Reinforcement of Positive Behaviors",
+    def:"Using incentives with escalating schedule to encourage abstinence verified by substance-free urine samples. Incentives include vouchers, prizes, and cash.",
+    examples:["abstinence reinforcement","voucher reinforcement","cash reinforcement","prize reinforcement","group attendance reinforcement","contingency-managed housing"] },
+  { abbr:"TA",     full:"Therapeutic Alliance / Relationship",
+    def:"Explicit efforts to build a collaborative therapist-patient relationship with a positive emotional bond and agreement on treatment goals, including instillation of hope and emotional support.",
+    examples:["establish therapeutic environment","therapeutic alliance","transference & countertransference","setting group rules","establish trust & confidentiality"] },
+  { abbr:"BA",     full:"Behavioural Activation & Modification",
+    def:"Encouraging engagement in meaningful and rewarding alternative activities to improve mood and replace substance-use habits.",
+    examples:["activity scheduling","behavioral activation","behavioral experiments","develop alternative behaviors","lifestyle change (nutrition, exercise, hobbies)","social/recreational counselling"] },
+  { abbr:"CF",     full:"Case Formulation",
+    def:"Individualized explanation of the development and maintenance of psychological symptoms, considering life history, predisposing factors, triggers, perpetuating factors, and individual strengths.",
+    examples:["case formulation","clinical assessment","life history"] },
+  { abbr:"FC",     full:"Relationship / Family Counselling",
+    def:"Involving family members or partners in the therapeutic process to improve communication, resolve conflicts, and create a supportive recovery environment.",
+    examples:["family involvement","family/relationship counselling","involving significant others","parenting skills","relationship counselling"] },
+  { abbr:"INT",    full:"Interpersonal Skills",
+    def:"Training the ability to clearly express thoughts, needs, and emotions, and listen and respond effectively, especially in high-stress or triggering situations.",
+    examples:["assertiveness training","communication skills training","interpersonal problem solving","social skills training","refusal skills","working on interpersonal patterns"] },
+  { abbr:"SG",     full:"Skills Generalisation",
+    def:"Assignments, homework, role-playing, and other between-session strategies to enhance learning and generalisation of therapy skills.",
+    examples:["homework","role-playing","modeling/role-playing","in-session exercises","encouragement & review","assignments"] },
+  { abbr:"PSED",   full:"Psychoeducation",
+    def:"Providing patients with information to understand and manage their condition, covering addiction models, medication management, harm reduction, and therapeutic approaches.",
+    examples:["general psychoeducation","psychoeducation – disease model of addiction","psychoeducation – therapy model"] },
+  { abbr:"PSS",    full:"Problem-Solving & Decision-Making Skills",
+    def:"Identifying problems, generating and evaluating solutions, and generalising them to similar situations, especially in high-risk scenarios.",
+    examples:["decision-making skills","problem-solving skills","identify & modify seemingly irrelevant decisions"] },
+  { abbr:"AMB",    full:"Address Ambivalence & Motivation",
+    def:"Non-confrontational approach to enhance internal motivation to change by exploring and resolving ambivalence, using the patient's own values and examining pros and cons of behavior change.",
+    examples:["address ambivalence","motivational enhancement","address denial","address guilt/shame","address resistance","commitment","treatment compliance","working on conflicted wishes"] },
+  { abbr:"COMORB", full:"Health & Comorbidities Management",
+    def:"Addressing SUDs other than the principal substance and co-occurring disorders, including psychiatric comorbidities and HIV.",
+    examples:["comorbidities management","health education","health-related materials"] },
+  { abbr:"CRAV",   full:"Coping with Craving",
+    def:"Strategies to manage craving and urges to use, including craving management and urge control techniques.",
+    examples:["craving management","urge control"] },
+  { abbr:"EMOT",   full:"Emotion Recognition / Regulation",
+    def:"Strategies to manage stressful and difficult emotional situations, including emotion recognition, labelling, coping planning, and self-regulation.",
+    examples:["anger management","address anxiety","emotion identification & labeling","emotion management","stress management","self-regulation","prolonged grief","diffusion & deliteralisation"] },
+  { abbr:"GOAL",   full:"Therapy Goal Setting",
+    def:"Therapist and patient work collaboratively to set the agenda and goals of therapy, informing an intervention plan.",
+    examples:["agenda","goal setting","change plan"] },
+  { abbr:"COG",    full:"Cognitive Restructuring",
+    def:"Identify cognitions related to substance use and reframe them, including restructuring unhelpful thought patterns, imagery re-scripting, and enhancing cognitive control.",
+    examples:["cognitive restructuring","cognitive modification","cognitive processes","imagery re-scripting"] },
+  { abbr:"SS",     full:"Establishing Social Support Systems",
+    def:"Enhancing patients' abilities to build and maintain supportive relationships with family, friends, peers, and community to support recovery.",
+    examples:["establish social support systems"] },
+  { abbr:"IDSELF", full:"Work on Identity / Self-Esteem",
+    def:"Work on personal identity, processing losses and changes related to sobriety, and enhancing self-efficacy and self-esteem.",
+    examples:["address self-narratives related to use","self-efficacy","self-esteem","grief of identity process","work on self/identity","CCRT"] },
+  { abbr:"PEER",   full:"Peer Support",
+    def:"Support provided by people with lived experience of recovery through participation in self-help groups and group discussions.",
+    examples:["peer support","active participation in self-help groups"] },
+  { abbr:"VOC",    full:"Vocational Skills",
+    def:"Training in skills needed for finding and maintaining a job, as well as planning financial issues.",
+    examples:["vocational counselling","financial planning"] },
+  { abbr:"RT",     full:"Relaxation Techniques",
+    def:"Techniques aimed at reducing stress and relaxing the body.",
+    examples:["breathing exercises","relaxation training"] },
+  { abbr:"SUB",    full:"Address Issues: Specific Subpopulations",
+    def:"Tailoring interventions to meet the unique needs of specific populations, including the LGBTQ community and women.",
+    examples:["gay & bisexual men-specific issues","gender-specific issues","sexual risk reduction skills"] },
+  { abbr:"MEAN",   full:"Address Spirituality & Meaning",
+    def:"Working on feelings of alienation, exploring patients' values and sense of purpose including potential connection to something greater than themselves.",
+    examples:["acceptance & surrender","find meaning","values clarification","work on alienation","address spirituality"] },
+  { abbr:"MMT",    full:"Mindfulness & Meditation Techniques",
+    def:"Learning to focus on the present moment and gain awareness of bodily sensations.",
+    examples:["meditation","mindfulness skills","mindfulness training"] },
+];
+
+// Build lookups
+const byAbbr = {};
+components.forEach(c => byAbbr[c.abbr] = c);
+groups.forEach(g => {
+  g.components = g.members.map(a => byAbbr[a]).filter(Boolean);
+});
+const nComponents = components.length; // 25
+
+// ── SVG SETUP ───────────────────────────────────────────────────────────────
+const W = 740, H = 740;
+const CX = W/2, CY = H/2;
+
+// Ring radii
+const HOLE    = 92;   // center hole
+const GRP_IN  = 100;  // group ring inner
+const GRP_OUT = 210;  // group ring outer  (wide so text fits)
+const CMP_IN  = 218;  // component ring inner
+const CMP_OUT = 340;  // component ring outer
+
+// Equal angular spacing
+const TAU = 2 * Math.PI;
+const COMP_SLICE = TAU / nComponents;   // each component gets same angle
+const GAP_COMP   = 0.018;               // gap between component arcs (radians)
+const GAP_GRP    = 0.022;               // gap between group arcs
+
+const svg = d3.select("#chart-wrap")
+  .append("svg").attr("width", W).attr("height", H)
+  .attr("viewBox", `0 0 ${W} ${H}`);
+const root = svg.append("g").attr("transform", `translate(${CX},${CY})`);
+const defs = svg.append("defs");
+
+// ── COMPUTE ANGLES ───────────────────────────────────────────────────────────
+// Walk groups in order; each component gets COMP_SLICE
+const outerArcs = [];
+let cursor = 0;
+
+groups.forEach(grp => {
+  grp._start = cursor;
+  grp.components.forEach(comp => {
+    outerArcs.push({
+      comp, grp,
+      sa: cursor + GAP_COMP / 2,
+      ea: cursor + COMP_SLICE - GAP_COMP / 2
+    });
+    cursor += COMP_SLICE;
+  });
+  grp._end = cursor;
+});
+
+// ── ARC GENERATORS ───────────────────────────────────────────────────────────
+const arcGrp  = d3.arc().innerRadius(GRP_IN).outerRadius(GRP_OUT);
+const arcComp = d3.arc().innerRadius(CMP_IN).outerRadius(CMP_OUT);
+
+// ── GROUP RING ───────────────────────────────────────────────────────────────
+groups.forEach((grp, gi) => {
+  const sa   = grp._start + GAP_GRP;
+  const ea   = grp._end   - GAP_GRP;
+  const midA = (sa + ea) / 2;
+  const span = ea - sa;
+
+  // Arc fill
+  root.append("path")
+    .attr("class","grp-arc")
+    .attr("d", arcGrp({ startAngle: sa, endAngle: ea }))
+    .attr("fill", grp.color).attr("opacity", 0.88)
+    .attr("stroke","#0d1018").attr("stroke-width", 1.5)
+    .on("mouseenter", function() { d3.select(this).attr("opacity",1); showGroup(grp); })
+    .on("mouseleave", function() { d3.select(this).attr("opacity",0.88); showIdle(); });
+
+  // ── Multi-line curved text on group ring ─────────────────────────────────
+  const ringMid = (GRP_IN + GRP_OUT) / 2;
+
+  // Hardcoded splits for small/problem labels
+  const labelSplits = {
+    "Subpopulation-Related Issues": ["Issues", "population", "Sub-"],
+    "Motivation, Identity & Meaning": ["Motivation,", "Identity & Meaning"],
+  };
+
+  const lines = labelSplits[grp.label] || (() => {
+    const arcLenMid = span * ringMid;
+    const charsPerLine = Math.floor(arcLenMid / 7);
+    const words = grp.label.split(" ");
+    const ls = [];
+    let current = "";
+    words.forEach(word => {
+      const test = current ? current + " " + word : word;
+      if (test.length <= charsPerLine || !current) { current = test; }
+      else { ls.push(current); current = word; }
+    });
+    if (current) ls.push(current);
+    return ls;
+  })();
+
+  const lineCount = lines.length;
+  const lineSpacing = 11;
+  const halfSpan = (lineCount - 1) / 2;
+  const offsets = lines.map((_, i) => (i - halfSpan) * lineSpacing);
+
+  // Bottom-half arcs: flip direction so text reads left-to-right
+  // But also flip the line ORDER so line[0] stays visually on top
+  const flip = midA > Math.PI / 2 && midA < 3 * Math.PI / 2;
+  const tPad = GAP_GRP + 0.03;
+
+  // angA → angB is always the drawing direction (sweep=1 = clockwise)
+  // For flipped arcs we reverse direction (sweep=0) so text flows correctly
+  const angA      = sa + tPad;
+  const angB      = ea - tPad;
+  const sweepFlag = 1;
+  const largeArc  = Math.abs(angB - angA) > Math.PI ? 1 : 0;
+
+  // For bottom-half: keep line order the same, just flip the arc draw direction
+  // and mirror offsets so line[0] is always outermost (visually "top")
+  const renderLines = lines;
+  const renderOffsets = flip ? offsets.map(o => -o) : offsets;
+
+  renderLines.forEach((lineText, li) => {
+    // For flipped arcs, mirror the radial offset so stacking stays correct
+    const r = ringMid + (flip ? -renderOffsets[li] : renderOffsets[li]);
+    const pathId = `gpth${gi}_${li}`;
+
+    let d;
+    if (flip) {
+      // Bottom half: go clockwise from angB→angA so text reads left-to-right
+      const x1 = Math.sin(angA) * r, y1 = -Math.cos(angA) * r;
+      const x2 = Math.sin(angB) * r, y2 = -Math.cos(angB) * r;
+      d = `M ${x2} ${y2} A ${r} ${r} 0 ${largeArc} 0 ${x1} ${y1}`;
+    } else {
+      const x1 = Math.sin(angA) * r, y1 = -Math.cos(angA) * r;
+      const x2 = Math.sin(angB) * r, y2 = -Math.cos(angB) * r;
+      d = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+    }
+
+    defs.append("path").attr("id", pathId).attr("d", d);
+
+    // Font size: fit THIS line's text into the arc length at radius r
+    const arcLen = span * r;
+    const rawSize = arcLen / (lineText.length * 0.62);
+    const fontSize = Math.min(11, Math.max(7, rawSize));
+
+    root.append("text")
+      .attr("pointer-events","none")
+      .append("textPath")
+        .attr("href", `#${pathId}`)
+        .attr("startOffset","50%")
+        .attr("text-anchor","middle")
+        .attr("dominant-baseline","middle")
+        .attr("fill","#fff")
+        .attr("font-family","DM Sans")
+        .attr("font-size", `${fontSize}px`)
+        .attr("font-weight","600")
+        .attr("letter-spacing","0.01em")
+        .text(lineText);
+  });
+});
+
+// ── COMPONENT RING ───────────────────────────────────────────────────────────
+outerArcs.forEach(d => {
+  // Arc
+  root.append("path")
+    .attr("class","comp-arc")
+    .datum(d)
+    .attr("d", arcComp({ startAngle: d.sa, endAngle: d.ea }))
+    .attr("fill", d.grp.color).attr("opacity", 0.52)
+    .attr("stroke","#0d1018").attr("stroke-width", 1)
+    .on("mouseenter", function(e, dd) {
+      d3.select(this).attr("opacity", 0.88);
+      showComp(dd.comp, dd.grp);
+    })
+    .on("mouseleave", function() {
+      d3.select(this).attr("opacity", 0.52);
+      showIdle();
+    });
+
+  // Abbreviation label — rotated radially
+  const midA = (d.sa + d.ea) / 2;
+  const lR   = (CMP_IN + CMP_OUT) / 2;
+  const lx   = Math.sin(midA) * lR;
+  const ly   = -Math.cos(midA) * lR;
+  const deg  = (midA * 180 / Math.PI) - 90;
+  const rot  = (deg > 90 || deg < -90) ? deg + 180 : deg;
+
+  root.append("text")
+    .attr("x", lx).attr("y", ly)
+    .attr("transform", `rotate(${rot},${lx},${ly})`)
+    .attr("text-anchor","middle")
+    .attr("dominant-baseline","middle")
+    .attr("fill","#fff")
+    .attr("font-size","9.5px")
+    .attr("font-family","DM Sans")
+    .attr("font-weight","500")
+    .attr("pointer-events","none")
+    .attr("opacity", 0.95)
+    .text(d.comp.abbr);
+});
+
+// ── CENTER HOLE ──────────────────────────────────────────────────────────────
+root.append("circle").attr("r", HOLE)
+  .attr("fill","#151922").attr("stroke","#1f2535").attr("stroke-width",1.5);
+
+// ── PANEL HELPERS ────────────────────────────────────────────────────────────
+function hideAll() {
+  document.getElementById("idle-msg").style.display = "none";
+  document.getElementById("cp-panel").classList.remove("on");
+  document.getElementById("gp-panel").classList.remove("on");
+}
+
+function showIdle() {
+  document.getElementById("idle-msg").style.display = "";
+  document.getElementById("cp-panel").classList.remove("on");
+  document.getElementById("gp-panel").classList.remove("on");
+  document.getElementById("center-title").innerHTML = "SUD<br>Treatment";
+}
+
+function showComp(comp, grp) {
+  hideAll();
+  document.getElementById("cp-panel").classList.add("on");
+  document.getElementById("center-title").textContent = comp.abbr;
+
+  const tag = document.getElementById("cp-tag");
+  tag.textContent = grp.label;
+  tag.style.background = grp.color + "22";
+  tag.style.color = grp.color;
+
+  const abbrEl = document.getElementById("cp-abbr");
+  abbrEl.textContent = comp.abbr;
+  abbrEl.style.color = grp.color;
+
+  document.getElementById("cp-full").textContent = comp.full;
+  document.getElementById("cp-def").textContent  = comp.def;
+
+  const tagsEl = document.getElementById("cp-tags");
+  tagsEl.innerHTML = "";
+  comp.examples.forEach(ex => {
+    const t = document.createElement("div");
+    t.className = "tag"; t.textContent = ex;
+    tagsEl.appendChild(t);
+  });
+}
+
+function showGroup(grp) {
+  hideAll();
+  document.getElementById("gp-panel").classList.add("on");
+  document.getElementById("center-title").innerHTML = grp.label.replace(" & ","<br>&amp; ").split(" ").slice(0,2).join("<br>");
+
+  const title = document.getElementById("gp-title");
+  title.textContent = grp.label;
+  title.style.color = grp.color;
+
+  const membersEl = document.getElementById("gp-members");
+  membersEl.innerHTML = "";
+  grp.components.forEach(comp => {
+    const row = document.createElement("div");
+    row.className = "gp-member";
+    row.style.borderColor = grp.color + "44";
+    row.style.background  = grp.color + "0e";
+    row.innerHTML = `
+      <span class="gp-abbr-text" style="color:${grp.color}">${comp.abbr}</span>
+      <span class="gp-name">${comp.full}</span>`;
+    row.addEventListener("mouseenter", () => showComp(comp, grp));
+    membersEl.appendChild(row);
+  });
+}
+
+showIdle();
+</script>
+</body>
+</html>
