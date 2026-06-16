@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUD Treatment Component Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1018;
+  --surface: #151922;
+  --surface-2: #1a1f2b;
+  --plot-bg: #232a3c;
+  --plot-bg-empty: #2c344a;
+  --border: #1f2535;
+  --border-soft: #262d40;
+  --text: #e4e8f2;
+  --muted: #68728f;
+  --muted-2: #8892b0;
+  --accent: #b8c4ff;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  padding: 24px 36px 60px;
+  font-weight: 400;
+}
+.topbar {
+  max-width: 1700px;
+  margin: 0 auto 24px;
+  padding: 0 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.topbar-left { flex: 1; min-width: 0; }
+.topbar h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+.topbar p {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 4px;
+  font-weight: 300;
+  max-width: 820px;
+}
+
+/* Info button & modal */
+.info-btn {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-family: 'DM Serif Display', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  margin-top: 2px;
+}
+.info-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+.info-overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,16,24,0.75);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.info-overlay.on { display: flex; }
+.info-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 32px;
+  max-width: 720px;
+  max-height: 85vh;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.info-modal h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.3rem;
+  margin-bottom: 14px;
+  color: var(--accent);
+}
+.info-modal h3 {
+  font-size: 0.7rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin: 18px 0 8px;
+}
+.info-modal p { color: #b8c0d6; font-size: 0.84rem; margin-bottom: 10px; }
+.info-modal .ref {
+  font-size: 0.78rem;
+  color: #a4aec8;
+  line-height: 1.55;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+.info-modal .ref:first-of-type { border-top: none; }
+.info-modal a {
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+.info-modal a:hover { text-decoration: underline; }
+.info-close {
+  position: absolute;
+  top: 14px; right: 18px;
+  background: none; border: none;
+  color: var(--muted);
+  font-size: 1.4rem; cursor: pointer;
+  padding: 4px 10px; line-height: 1;
+}
+.info-close:hover { color: var(--accent); }
+.info-modal-wrap { position: relative; }
+
+/* Tabs */
+.tabs {
+  max-width: 1700px;
+  margin: 0 auto 18px;
+  padding: 0 12px;
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 11px 22px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  display: none;
+  max-width: 1700px;
+  margin: 0 auto;
+  padding: 0 12px;
+}
+.tab-panel.active { display: block; }
+
+/* ───── Taxonomy tab ───── */
+.tax-layout {
+  display: flex; flex-direction: row; align-items: flex-start;
+  gap: 40px;
+}
+#tax-chart-wrap { position: relative; flex: 0 0 auto; }
+#tax-center-label {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center; pointer-events: none; width: 150px;
+}
+#tax-center-title {
+  font-family: 'DM Serif Display', serif; font-size: 1rem;
+  font-style: italic; color: var(--accent); line-height: 1.3;
+}
+#tax-info-panel {
+  flex: 1; min-width: 270px; max-width: 400px;
+  position: sticky; top: 32px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 26px; min-height: 380px;
+}
+.panel-idle { color: var(--muted); font-size: 0.83rem; line-height: 1.7; }
+.panel-idle strong {
+  display: block; font-size: 0.67rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 9px;
+}
+.panel-idle em { color: var(--accent); font-style: normal; font-weight: 500; }
+.cp { display: none; flex-direction: column; }
+.cp.on { display: flex; }
+.cp-tag {
+  display: inline-block; padding: 3px 11px; border-radius: 20px;
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: 13px; width: fit-content;
+}
+.cp-abbr {
+  font-family: 'DM Serif Display', serif; font-size: 2.1rem;
+  font-style: italic; line-height: 1; margin-bottom: 4px;
+}
+.cp-full { font-size: 0.93rem; font-weight: 500; color: var(--accent); margin-bottom: 16px; line-height: 1.35; }
+.sec-label {
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.cp-def { font-size: 0.81rem; line-height: 1.65; color: #a4aec8; font-weight: 300; margin-bottom: 16px; }
+.cp-examples { padding-top: 14px; border-top: 1px solid var(--border); }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.tag {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px;
+  font-size: 0.71rem; color: var(--muted); font-weight: 300;
+}
+.gp { display: none; flex-direction: column; }
+.gp.on { display: flex; }
+.gp-title {
+  font-family: 'DM Serif Display', serif; font-size: 1.4rem;
+  line-height: 1.2; margin-bottom: 14px;
+}
+.gp-members { display: flex; flex-direction: column; gap: 5px; }
+.gp-member {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 11px; border-radius: 8px; border: 1px solid; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.gp-member:hover { opacity: 0.7; }
+.gp-abbr-text { font-weight: 600; font-size: 0.8rem; width: 52px; flex-shrink: 0; }
+.gp-name { font-size: 0.76rem; color: #a4aec8; flex: 1; line-height: 1.3; }
+path.comp-arc, path.grp-arc { cursor: pointer; }
+
+/* ───── Heatmap tab ───── */
+.hm-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 28px;
+  align-items: flex-start;
+}
+#heatmaps-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px 18px;
+  overflow-x: auto;
+  min-width: 0;
+}
+.legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  padding: 4px 4px 18px;
+  font-size: 0.74rem;
+  color: #ffffff;
+  font-weight: 500;
+}
+.legend-item { display: flex; align-items: center; gap: 7px; }
+.legend-swatch { width: 13px; height: 13px; border-radius: 3px; }
+
+.heatmap-block { margin-bottom: 28px; }
+.heatmap-block:last-child { margin-bottom: 0; }
+.heatmap-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--accent);
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+}
+.heatmap-subtitle {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-weight: 300;
+}
+
+#hm-side-panel {
+  position: sticky;
+  top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  min-height: 480px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+/* component panel (in heatmap) */
+.hm-cp { display: none; }
+.hm-cp.on { display: block; }
+.hm-cp-tag {
+  display: inline-block; padding: 3px 11px; border-radius: 20px;
+  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: 12px;
+}
+.hm-cp-abbr {
+  font-family: 'DM Serif Display', serif; font-size: 2rem;
+  font-style: italic; line-height: 1; margin-bottom: 4px;
+}
+.hm-cp-full { font-size: 0.95rem; font-weight: 500; color: var(--accent); margin-bottom: 14px; line-height: 1.35; }
+.hm-cp-def { font-size: 0.80rem; line-height: 1.65; color: #a4aec8; font-weight: 300; }
+.hm-cp-stats {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.hm-cp-stat-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.hm-cp-stat-card .lbl {
+  font-size: 0.66rem; color: var(--muted);
+  letter-spacing: 0.04em; line-height: 1.35;
+  margin-bottom: 4px;
+}
+.hm-cp-stat-card .val { font-size: 0.85rem; font-weight: 500; color: var(--text); }
+.hm-cp-stat-card .val .pct { color: var(--muted-2); font-size: 0.74rem; margin-left: 5px; font-weight: 400; }
+.hm-cp-stat-card .src {
+  font-size: 0.62rem; color: var(--muted); margin-top: 6px; font-style: italic;
+}
+.hm-cp-stat-card .src a { color: var(--muted-2); text-decoration: none; }
+.hm-cp-stat-card .src a:hover { color: var(--accent); }
+
+/* profile panel */
+.pp { display: none; }
+.pp.on { display: block; }
+.pp-id-line {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 8px;
+}
+.pp-id {
+  font-family: 'DM Serif Display', serif; font-size: 1.8rem;
+  font-style: italic; line-height: 1; color: var(--accent);
+}
+.pp-na-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.66rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.pp-interventions-section { margin-bottom: 16px; }
+.pp-interventions-list {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-top: 7px;
+}
+.pp-int-item {
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.pp-stats { display: flex; gap: 10px; margin-bottom: 16px; }
+.pp-stat { flex: 1; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 8px; padding: 8px 12px; }
+.pp-stat .num { font-family: 'DM Serif Display', serif; font-size: 1.5rem; line-height: 1.1; }
+.pp-stat .lbl { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
+
+.pp-arms-list {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-top: 8px;
+  max-height: 280px;
+  overflow-y: auto; padding-right: 4px;
+}
+.pp-arms-list::-webkit-scrollbar { width: 5px; }
+.pp-arms-list::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+.arm-item {
+  padding: 6px 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #a4aec8;
+  font-weight: 400;
+}
+.arm-item .arm-author { color: var(--text); font-weight: 500; }
+.arm-item .arm-combo {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 2px;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.pp-comp-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; margin-bottom: 14px; }
+.pp-comp-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.66rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+svg.heatmap { display: block; }
+.plot-bg { fill: var(--plot-bg); }
+.cell { cursor: pointer; transition: opacity 0.12s; }
+.cell.dim { opacity: 0.22; }
+.row-label, .col-label { font-family: 'DM Mono', monospace; font-size: 10px; fill: var(--muted-2); cursor: pointer; }
+.row-label.active, .col-label.active { fill: var(--accent); font-weight: 600; }
+.row-label.pinned, .col-label.pinned { fill: #fff; font-weight: 700; }
+.row-label:hover, .col-label:hover { fill: var(--accent); }
+.group-band { stroke: none; }
+
+.pin-hint {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(184,196,255,0.10);
+  border: 1px solid rgba(184,196,255,0.28);
+  color: var(--accent);
+  border-radius: 12px;
+  padding: 3px 9px;
+  font-size: 0.64rem;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+/* Floating hover tooltip when something is pinned */
+.float-tip {
+  position: fixed;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-width: 280px;
+  pointer-events: none;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  display: none;
+}
+.float-tip.on { display: block; }
+.float-tip .tip-title {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+.float-tip .tip-sub {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+@media (max-width: 1200px) {
+  .hm-layout { grid-template-columns: 1fr; }
+  #hm-side-panel { position: static; }
+  .tax-layout { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>SUD Treatment Component Dashboard</h1>
+    <p>An evidence-based taxonomy of psychosocial treatment components for substance-use disorders, with the empirical profile structure of 109 randomized trial arms.</p>
+  </div>
+  <button class="info-btn" id="info-btn" title="Sources & citations">i</button>
+</div>
+
+<div class="info-overlay" id="info-overlay">
+  <div class="info-modal-wrap">
+    <div class="info-modal">
+      <button class="info-close" id="info-close" title="Close">×</button>
+      <h2>Sources &amp; Citations</h2>
+
+      <h3>This taxonomy &amp; profile structure</h3>
+      <p>The empirical results presented here (component frequencies, profile structure, intervention groupings) were developed in:</p>
+      <div class="ref">
+        Preprint:
+        <a href="https://doi.org/10.31234/osf.io/bd2yk_v1" target="_blank" rel="noopener">
+          https://doi.org/10.31234/osf.io/bd2yk_v1
+        </a>
+      </div>
+
+      <h3>Underlying randomized controlled trials</h3>
+      <p>The RCTs analyzed in this work come from two network meta-analyses:</p>
+      <div class="ref">
+        Minozzi S, Saulle R, Amato L, Traccis F, Agabio R.
+        Psychosocial interventions for stimulant use disorder.
+        <em>Cochrane Database of Systematic Reviews.</em>
+        Feb 15 2024;2(2):Cd011866.
+        doi:10.1002/14651858.CD011866.pub3
+      </div>
+      <div class="ref">
+        De Crescenzo F, Ciabattini M, D'Alò GL, et al.
+        Comparative efficacy and acceptability of psychosocial interventions for individuals with cocaine and amphetamine addiction: A systematic review and network meta-analysis.
+        <em>PLOS Medicine.</em>
+        2018;15(12):e1002715.
+        doi:10.1371/journal.pmed.1002715
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="taxonomy">Treatment Component Taxonomy</button>
+  <button class="tab" data-tab="heatmap">Intervention Profile Heatmap</button>
+</div>
+
+<!-- ───── Taxonomy tab ───── -->
+<div class="tab-panel active" id="tab-taxonomy">
+  <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 18px; font-weight: 300; max-width: 820px;">
+    Hover the <em style="color: var(--accent); font-style: normal;">inner ring</em> to explore a thematic group · hover the <em style="color: var(--accent); font-style: normal;">outer ring</em> for a component's full name, definition, and example protocol elements.
+  </p>
+  <div class="tax-layout">
+    <div id="tax-chart-wrap">
+      <div id="tax-center-label">
+        <div id="tax-center-title">SUD<br>Treatment</div>
+      </div>
+    </div>
+    <div id="tax-info-panel">
+      <div id="tax-idle" class="panel-idle">
+        <strong>How to explore</strong>
+        Hover the <em>inner ring</em> to see a thematic group and its components.<br><br>
+        Hover the <em>outer ring</em> to see a component's full name, definition, and protocol elements from manuals.
+      </div>
+      <div id="tax-cp" class="cp">
+        <span class="cp-tag" id="tax-cp-tag"></span>
+        <div class="cp-abbr" id="tax-cp-abbr"></div>
+        <div class="cp-full" id="tax-cp-full"></div>
+        <div class="sec-label">Definition</div>
+        <div class="cp-def" id="tax-cp-def"></div>
+        <div class="cp-examples">
+          <div class="sec-label">Protocol elements</div>
+          <div class="tags" id="tax-cp-tags"></div>
+        </div>
+      </div>
+      <div id="tax-gp" class="gp">
+        <div class="gp-title" id="tax-gp-title"></div>
+        <div class="gp-members" id="tax-gp-members"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── Heatmap tab ───── -->
+<div class="tab-panel" id="tab-heatmap">
+  <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 18px; font-weight: 300; max-width: 880px;">
+    40 unique intervention profiles derived from 109 active arms across substance-use-disorder trials. Each row is a profile; each column is a treatment component (grouped by thematic category, color-coded as in the legend).
+    <strong style="color: var(--text); font-weight: 500;">N<sub>c</sub></strong> = number of components present in the profile ·
+    <strong style="color: var(--text); font-weight: 500;">N<sub>a</sub></strong> = number of trial arms represented by the profile.
+    <strong style="color: var(--text); font-weight: 500;">Top:</strong> 14 profiles represented by ≥ 2 arms, ordered by N<sub>a</sub>.
+    <strong style="color: var(--text); font-weight: 500;">Bottom:</strong> 26 single-arm profiles, ordered by N<sub>c</sub>.
+    Hover any cell, row label, or column label to explore; click a row label to pin the panel and scroll the arms list.
+  </p>
+
+  <div class="hm-layout">
+    <div id="heatmaps-wrap">
+      <div class="legend" id="hm-legend"></div>
+
+      <div class="heatmap-block">
+        <div class="heatmap-title">Multi-arm profiles</div>
+        <div class="heatmap-subtitle">14 unique profiles · ordered by N<sub>a</sub> (number of arms) ↓</div>
+        <svg class="heatmap" id="hm-multi" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+
+      <div class="heatmap-block">
+        <div class="heatmap-title">Single-arm profiles</div>
+        <div class="heatmap-subtitle">26 unique profiles · ordered by N<sub>c</sub> (number of components) ↓</div>
+        <svg class="heatmap" id="hm-single" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+
+    <div id="hm-side-panel">
+      <div id="hm-idle" class="panel-idle">
+        <strong>How to explore</strong>
+        <em>Hover a row label</em> to see the profile's intervention combinations, components, and constituent arms (study + year).<br><br>
+        <em>Click a row label</em> to pin the panel open so you can scroll through long arm lists. Click it again to unpin.<br><br>
+        <em>Hover a cell</em> for the component's full name and definition.<br><br>
+        <em>Hover a column label</em> for component-level stats across all profiles and arms.
+      </div>
+
+      <div id="hm-cp-panel" class="hm-cp">
+        <div id="hm-cp-pin-hint" class="pin-hint" style="display:none;">📌 Pinned · click again to unpin</div>
+        <span class="hm-cp-tag" id="hm-cp-tag"></span>
+        <div class="hm-cp-abbr" id="hm-cp-abbr"></div>
+        <div class="hm-cp-full" id="hm-cp-full"></div>
+        <div class="sec-label">Definition</div>
+        <div class="hm-cp-def" id="hm-cp-def"></div>
+        <div class="hm-cp-stats">
+          <div class="hm-cp-stat-card">
+            <div class="lbl">Unique profiles containing this component</div>
+            <div class="val"><span id="hm-cp-pc">—</span><span class="pct" id="hm-cp-pc-pct"></span></div>
+            <div class="src">Source: <a href="https://doi.org/10.31234/osf.io/bd2yk_v1" target="_blank" rel="noopener">preprint (osf.io/bd2yk_v1)</a></div>
+          </div>
+          <div class="hm-cp-stat-card">
+            <div class="lbl">Trial arms containing this component</div>
+            <div class="val"><span id="hm-cp-ac">—</span><span class="pct" id="hm-cp-ac-pct"></span></div>
+            <div class="src">Source: <a href="https://doi.org/10.31234/osf.io/bd2yk_v1" target="_blank" rel="noopener">preprint (osf.io/bd2yk_v1)</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="hm-pp-panel" class="hm-cp">
+        <div id="hm-pp-pin-hint" class="pin-hint" style="display:none;">📌 Pinned · click again to unpin · scroll arms below</div>
+
+        <div class="pp-id-line">
+          <div class="pp-id" id="hm-pp-id"></div>
+          <div class="pp-na-tag" id="hm-pp-na-tag"></div>
+        </div>
+
+        <div class="pp-interventions-section">
+          <div class="sec-label">Intervention combinations</div>
+          <div class="pp-interventions-list" id="hm-pp-interventions"></div>
+        </div>
+
+        <div class="pp-stats">
+          <div class="pp-stat"><div class="num" id="hm-pp-nc">—</div><div class="lbl">N<sub>c</sub> · components</div></div>
+          <div class="pp-stat"><div class="num" id="hm-pp-na">—</div><div class="lbl">N<sub>a</sub> · arms</div></div>
+        </div>
+
+        <div class="sec-label">Components present</div>
+        <div class="pp-comp-list" id="hm-pp-comps"></div>
+
+        <div>
+          <div class="sec-label">Constituent arms (<span id="hm-pp-arms-count"></span>)</div>
+          <div class="pp-arms-list" id="hm-pp-arms"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating tooltip used when something is pinned -->
+<div class="float-tip" id="float-tip"></div>
+
+<script>
+// ───── Tab switching ─────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const which = tab.dataset.tab;
+    document.getElementById('tab-' + which).classList.add('active');
+    if (which === 'taxonomy') initTaxonomy();
+  });
+});
+
+// ───── Info modal ─────
+const infoOverlay = document.getElementById('info-overlay');
+document.getElementById('info-btn').addEventListener('click', () => infoOverlay.classList.add('on'));
+document.getElementById('info-close').addEventListener('click', () => infoOverlay.classList.remove('on'));
+infoOverlay.addEventListener('click', e => {
+  if (e.target === infoOverlay) infoOverlay.classList.remove('on');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') infoOverlay.classList.remove('on');
+});
+
+
+function initTaxonomy() {
+  if (window._taxonomyInitialized) return;
+  window._taxonomyInitialized = true;
+  const groups = [
+  { id:0, label:"Common Elements",               color:"#5d85c3", members:["TA","PSED","CF","RP","GOAL"] },
+  { id:1, label:"Substance-Related Symptoms",     color:"#df7060", members:["FA","CRAV","COG","PSS","EMOT"] },
+  { id:2, label:"Behavioral Techniques",          color:"#5cb896", members:["BA","RPB","RT","SG"] },
+  { id:3, label:"Motivation, Identity & Meaning", color:"#c47ed4", members:["AMB","MEAN","IDSELF","MMT"] },
+  { id:4, label:"Interpersonal Domain",           color:"#e09a3e", members:["INT","SS","PEER","FC","VOC"] },
+  { id:5, label:"Subpopulation-Related Issues",   color:"#5dbfd4", members:["COMORB","SUB"] },
+];
+
+const components = [
+  { abbr:"RP",     full:"Relapse Prevention",
+    def:"Develop a set of strategies to recognize and manage high-risk situations and maintain abstinence. Generally, this includes the identification of triggers, applying coping skills in emergency situations/developing a crisis management plan, preventing a full-blown relapse after a potential slip, and generally practicing most of the skills learned in therapy with the specific aim of preventing a potential relapse.",
+    examples:["relapse prevention","crisis management plan","functional relapse analysis","graduated exposure to risky situations","coping skills for managing relapse","self-monitoring of craving"] },
+  { abbr:"FA",     full:"Functional Analysis",
+    def:"Understanding the patterns of substance use by examining the antecedents or triggers, beliefs, and consequences associated with substance use. Also referred to as the ABC model \u2013 the identification of antecedents \u2013 beliefs \u2013 consequences of a behavior. Here, we also included partial functional analysis like exploring the relationship between emotions and drug use or identifying antecedents of use.",
+    examples:["functional analysis","functional analysis of substance use","identify thoughts as antecedents of use","explore relationship between emotions & drug use","CCRT framework"] },
+  { abbr:"RPB",    full:"Reinforcement of Positive Behaviors",
+    def:"The use of incentives, usually with escalating schedule, to encourage abstinence, which is verified by providing substance-free urine samples. Incentives include vouchers, prizes, and cash.",
+    examples:["abstinence reinforcement","voucher reinforcement","cash reinforcement","prize reinforcement","group attendance reinforcement","contingency-managed housing"] },
+  { abbr:"TA",     full:"Therapeutic Relationship / Alliance",
+    def:"Explicit efforts to build a collaborative relationship between therapist and patient that aims to establish a positive emotional bond and agreement on treatment goals. It includes non-specific elements of therapy like instillation of hope and emotional support. Here we included the explicit use of the relationship for therapeutic ends, or the transference and countertransference analysis in psychodynamic terms.",
+    examples:["establish therapeutic environment","therapeutic alliance","transference & countertransference","setting group rules","establish trust & confidentiality"] },
+  { abbr:"BA",     full:"Behavioral Activation & Modification",
+    def:"Encouraging engagement in meaningful and rewarding alternative activities to improve mood and/or to replace substance-use related habits.",
+    examples:["activity scheduling","behavioral activation","behavioral experiments","develop alternative behaviors","lifestyle change (nutrition, exercise, hobbies)","social/recreational counselling"] },
+  { abbr:"CF",     full:"Case Formulation",
+    def:"An individualized explanation of the development and maintenance of psychological symptoms, considering individual life history, predisposing factors, triggers, perpetuating factors, and individual strengths. It includes clinical assessment and taking the patient\u2019s medical and life history.",
+    examples:["case formulation","clinical assessment","life history"] },
+  { abbr:"FC",     full:"Relationship & Family Counselling",
+    def:"Involving family members or partners in the therapeutic process to address the effects of substance use on relationships. The aim is to improve communication, resolve conflicts, and create a supportive environment that promotes recovery and relapse prevention.",
+    examples:["family involvement","family/relationship counselling","involving significant others","parenting skills","relationship counselling"] },
+  { abbr:"INT",    full:"Interpersonal Skills",
+    def:"The ability to clearly express thoughts, needs, and emotions, and to listen and respond effectively, especially in high-stress or triggering situations. In SUD they often include assertiveness training and refusal skills. Here, we also included training the abilities needed to build meaningful interpersonal relationships (i.e. conversational skills), the ability to solve relationship problems, and identifying interpersonal patterns in relationships.",
+    examples:["assertiveness training","communication skills training","interpersonal problem solving","social skills training","refusal skills","working on interpersonal patterns"] },
+  { abbr:"SG",     full:"Skills Generalization",
+    def:"Includes assignments, homework, role-playing and all other strategies learned in therapy and used in between sessions to enhance learning and generalization of skills.",
+    examples:["homework","role-playing","modeling/role-playing","in-session exercises","encouragement & review","assignments"] },
+  { abbr:"PSED",   full:"Psychoeducation",
+    def:"The process of providing patients with information to better understand and manage their condition. It includes educating the patient (and possibly their family/significant others) about the addiction model (e.g. the disease/disorder framework), medication management/adherence, general health education, harm reduction strategies, and therapeutic approaches (e.g. the cognitive-behavioral model).",
+    examples:["general psychoeducation","psychoeducation \u2013 disease model of addiction","psychoeducation \u2013 therapy model"] },
+  { abbr:"PSS",    full:"Problem-Solving & Decision-Making Skills",
+    def:"The ability to identify problems, generate and evaluate potential solutions, and generalize these solutions to other similar problems. This includes the ability to choose the most appropriate course of action, especially in high-risk situations.",
+    examples:["decision-making skills","problem-solving skills","identify & modify seemingly irrelevant decisions"] },
+  { abbr:"AMB",    full:"Address Ambivalence & Motivation",
+    def:"A non-confrontational communication approach aiming to enhance a patient\u2019s internal motivation to change problematic behaviors. It focuses on exploring and resolving ambivalence about change, using the patient\u2019s own core values, often by examining the pros and cons of the current behavior versus change. It includes acceptance of the condition/disorder (incl. psychodynamic terms like addressing resistance and conflicted wishes or addressing denial), addressing guilt/shame, enhancing treatment compliance, enhancing self-esteem related to the ability to change, and enhancing commitment to change.",
+    examples:["address ambivalence","motivational enhancement","address denial","address guilt/shame","address resistance","commitment","treatment compliance","working on conflicted wishes"] },
+  { abbr:"COMORB", full:"Health & Comorbidities Management",
+    def:"Address SUD other than principal substance and other disorders, including psychiatric comorbidities and HIV.",
+    examples:["comorbidities management","health education","health-related materials"] },
+  { abbr:"CRAV",   full:"Coping with Craving",
+    def:"Strategies to manage craving/urges to use, including craving management and urge control.",
+    examples:["craving management","urge control"] },
+  { abbr:"EMOT",   full:"Emotion Recognition & Regulation",
+    def:"Strategies to manage stressful and/or difficult emotional situations, including recognition of one\u2019s emotions (identification and labelling), making a coping plan and emotional self-regulation, including anger and anxiety management.",
+    examples:["anger management","address anxiety","emotion identification & labeling","emotion management","stress management","self-regulation","prolonged grief","diffusion & deliteralisation"] },
+  { abbr:"GOAL",   full:"Therapy Goal Setting",
+    def:"Therapist and patient work collaboratively to inform an intervention plan and set the agenda and the goals of therapy.",
+    examples:["agenda","goal setting","change plan"] },
+  { abbr:"COG",    full:"Cognitive Restructuring",
+    def:"Identify cognitions related to substance use and reframe them. This includes cognitive restructuring of unhelpful or distorted thought patterns that contribute to substance use, imagery re-scripting, and enhancing cognitive control.",
+    examples:["cognitive restructuring","cognitive modification","cognitive processes","imagery re-scripting"] },
+  { abbr:"SS",     full:"Establishing Social Support Systems",
+    def:"Enhance patients\u2019 abilities to build and maintain supportive relationships with family, friends, peers, and community resources to enhance recovery and prevent relapse.",
+    examples:["establish social support systems"] },
+  { abbr:"IDSELF", full:"Work on Identity & Self-Esteem",
+    def:"Work on issues related to personal identity, including processing losses and changes in identity related to sobriety and enhance patients\u2019 confidence in their abilities (i.e. self-efficacy) and self-esteem.",
+    examples:["address self-narratives related to use","self-efficacy","self-esteem","grief of identity process","work on self/identity","CCRT"] },
+  { abbr:"PEER",   full:"Peer Support",
+    def:"Support provided by people with lived experience of recovery from addiction through participation in self-help groups and group discussions.",
+    examples:["peer support","active participation in self-help groups"] },
+  { abbr:"VOC",    full:"Vocational Skills",
+    def:"Training in skills needed for finding and maintaining a job, as well as planning financial issues.",
+    examples:["vocational counselling","financial planning"] },
+  { abbr:"RT",     full:"Relaxation Techniques",
+    def:"Techniques aimed at reducing stress and relaxing the body.",
+    examples:["breathing exercises","relaxation training"] },
+  { abbr:"SUB",    full:"Address Issues Related to Specific Populations",
+    def:"Tailor intervention to meet the unique needs of specific populations, including the LGBTQ community and women.",
+    examples:["gay & bisexual men-specific issues","gender-specific issues","sexual risk reduction skills"] },
+  { abbr:"MEAN",   full:"Address Spirituality & Meaning",
+    def:"Work on feelings of alienation, explore the patients\u2019 values and sense of purpose in life, including a potential connection to something greater than themselves (religious or not).",
+    examples:["acceptance & surrender","find meaning","values clarification","work on alienation","address spirituality"] },
+  { abbr:"MMT",    full:"Mindfulness & Meditation Techniques",
+    def:"Learn how to focus on the present moment and gain awareness of bodily sensations.",
+    examples:["meditation","mindfulness skills","mindfulness training"] },
+];
+
+// Build lookups
+const byAbbr = {};
+components.forEach(c => byAbbr[c.abbr] = c);
+groups.forEach(g => {
+  g.components = g.members.map(a => byAbbr[a]).filter(Boolean);
+});
+const nComponents = components.length; // 25
+
+// ── SVG SETUP ───────────────────────────────────────────────────────────────
+const W = 740, H = 740;
+const CX = W/2, CY = H/2;
+
+// Ring radii
+const HOLE    = 92;   // center hole
+const GRP_IN  = 100;  // group ring inner
+const GRP_OUT = 210;  // group ring outer  (wide so text fits)
+const CMP_IN  = 218;  // component ring inner
+const CMP_OUT = 340;  // component ring outer
+
+// Equal angular spacing
+const TAU = 2 * Math.PI;
+const COMP_SLICE = TAU / nComponents;   // each component gets same angle
+const GAP_COMP   = 0.018;               // gap between component arcs (radians)
+const GAP_GRP    = 0.022;               // gap between group arcs
+
+const svg = d3.select("#tax-chart-wrap")
+  .append("svg").attr("width", W).attr("height", H)
+  .attr("viewBox", `0 0 ${W} ${H}`);
+const root = svg.append("g").attr("transform", `translate(${CX},${CY})`);
+const defs = svg.append("defs");
+
+// ── COMPUTE ANGLES ───────────────────────────────────────────────────────────
+// Walk groups in order; each component gets COMP_SLICE
+const outerArcs = [];
+let cursor = 0;
+
+groups.forEach(grp => {
+  grp._start = cursor;
+  grp.components.forEach(comp => {
+    outerArcs.push({
+      comp, grp,
+      sa: cursor + GAP_COMP / 2,
+      ea: cursor + COMP_SLICE - GAP_COMP / 2
+    });
+    cursor += COMP_SLICE;
+  });
+  grp._end = cursor;
+});
+
+// ── ARC GENERATORS ───────────────────────────────────────────────────────────
+const arcGrp  = d3.arc().innerRadius(GRP_IN).outerRadius(GRP_OUT);
+const arcComp = d3.arc().innerRadius(CMP_IN).outerRadius(CMP_OUT);
+
+// ── GROUP RING ───────────────────────────────────────────────────────────────
+groups.forEach((grp, gi) => {
+  const sa   = grp._start + GAP_GRP;
+  const ea   = grp._end   - GAP_GRP;
+  const midA = (sa + ea) / 2;
+  const span = ea - sa;
+
+  // Arc fill
+  root.append("path")
+    .attr("class","grp-arc")
+    .attr("d", arcGrp({ startAngle: sa, endAngle: ea }))
+    .attr("fill", grp.color).attr("opacity", 0.88)
+    .attr("stroke","#0d1018").attr("stroke-width", 1.5)
+    .on("mouseenter", function() { d3.select(this).attr("opacity",1); showGroup(grp); })
+    .on("mouseleave", function() { d3.select(this).attr("opacity",0.88); showIdle(); });
+
+  // ── Multi-line curved text on group ring ─────────────────────────────────
+  const ringMid = (GRP_IN + GRP_OUT) / 2;
+
+  // Hardcoded splits for small/problem labels
+  const labelSplits = {
+    "Subpopulation-Related Issues": ["Issues", "population", "Sub-"],
+    "Motivation, Identity & Meaning": ["Motivation,", "Identity & Meaning"],
+  };
+
+  const lines = labelSplits[grp.label] || (() => {
+    const arcLenMid = span * ringMid;
+    const charsPerLine = Math.floor(arcLenMid / 7);
+    const words = grp.label.split(" ");
+    const ls = [];
+    let current = "";
+    words.forEach(word => {
+      const test = current ? current + " " + word : word;
+      if (test.length <= charsPerLine || !current) { current = test; }
+      else { ls.push(current); current = word; }
+    });
+    if (current) ls.push(current);
+    return ls;
+  })();
+
+  const lineCount = lines.length;
+  const lineSpacing = 11;
+  const halfSpan = (lineCount - 1) / 2;
+  const offsets = lines.map((_, i) => (i - halfSpan) * lineSpacing);
+
+  // Bottom-half arcs: flip direction so text reads left-to-right
+  // But also flip the line ORDER so line[0] stays visually on top
+  const flip = midA > Math.PI / 2 && midA < 3 * Math.PI / 2;
+  const tPad = GAP_GRP + 0.03;
+
+  // angA → angB is always the drawing direction (sweep=1 = clockwise)
+  // For flipped arcs we reverse direction (sweep=0) so text flows correctly
+  const angA      = sa + tPad;
+  const angB      = ea - tPad;
+  const sweepFlag = 1;
+  const largeArc  = Math.abs(angB - angA) > Math.PI ? 1 : 0;
+
+  // For bottom-half: keep line order the same, just flip the arc draw direction
+  // and mirror offsets so line[0] is always outermost (visually "top")
+  const renderLines = lines;
+  const renderOffsets = flip ? offsets.map(o => -o) : offsets;
+
+  renderLines.forEach((lineText, li) => {
+    // For flipped arcs, mirror the radial offset so stacking stays correct
+    const r = ringMid + (flip ? -renderOffsets[li] : renderOffsets[li]);
+    const pathId = `gpth${gi}_${li}`;
+
+    let d;
+    if (flip) {
+      // Bottom half: go clockwise from angB→angA so text reads left-to-right
+      const x1 = Math.sin(angA) * r, y1 = -Math.cos(angA) * r;
+      const x2 = Math.sin(angB) * r, y2 = -Math.cos(angB) * r;
+      d = `M ${x2} ${y2} A ${r} ${r} 0 ${largeArc} 0 ${x1} ${y1}`;
+    } else {
+      const x1 = Math.sin(angA) * r, y1 = -Math.cos(angA) * r;
+      const x2 = Math.sin(angB) * r, y2 = -Math.cos(angB) * r;
+      d = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+    }
+
+    defs.append("path").attr("id", pathId).attr("d", d);
+
+    // Font size: fit THIS line's text into the arc length at radius r
+    const arcLen = span * r;
+    const rawSize = arcLen / (lineText.length * 0.62);
+    const fontSize = Math.min(11, Math.max(7, rawSize));
+
+    root.append("text")
+      .attr("pointer-events","none")
+      .append("textPath")
+        .attr("href", `#${pathId}`)
+        .attr("startOffset","50%")
+        .attr("text-anchor","middle")
+        .attr("dominant-baseline","middle")
+        .attr("fill","#fff")
+        .attr("font-family","DM Sans")
+        .attr("font-size", `${fontSize}px`)
+        .attr("font-weight","600")
+        .attr("letter-spacing","0.01em")
+        .text(lineText);
+  });
+});
+
+// ── COMPONENT RING ───────────────────────────────────────────────────────────
+outerArcs.forEach(d => {
+  // Arc
+  root.append("path")
+    .attr("class","comp-arc")
+    .datum(d)
+    .attr("d", arcComp({ startAngle: d.sa, endAngle: d.ea }))
+    .attr("fill", d.grp.color).attr("opacity", 0.52)
+    .attr("stroke","#0d1018").attr("stroke-width", 1)
+    .on("mouseenter", function(e, dd) {
+      d3.select(this).attr("opacity", 0.88);
+      showComp(dd.comp, dd.grp);
+    })
+    .on("mouseleave", function() {
+      d3.select(this).attr("opacity", 0.52);
+      showIdle();
+    });
+
+  // Abbreviation label — rotated radially
+  const midA = (d.sa + d.ea) / 2;
+  const lR   = (CMP_IN + CMP_OUT) / 2;
+  const lx   = Math.sin(midA) * lR;
+  const ly   = -Math.cos(midA) * lR;
+  const deg  = (midA * 180 / Math.PI) - 90;
+  const rot  = (deg > 90 || deg < -90) ? deg + 180 : deg;
+
+  root.append("text")
+    .attr("x", lx).attr("y", ly)
+    .attr("transform", `rotate(${rot},${lx},${ly})`)
+    .attr("text-anchor","middle")
+    .attr("dominant-baseline","middle")
+    .attr("fill","#fff")
+    .attr("font-size","9.5px")
+    .attr("font-family","DM Sans")
+    .attr("font-weight","500")
+    .attr("pointer-events","none")
+    .attr("opacity", 0.95)
+    .text(d.comp.abbr);
+});
+
+// ── CENTER HOLE ──────────────────────────────────────────────────────────────
+root.append("circle").attr("r", HOLE)
+  .attr("fill","#151922").attr("stroke","#1f2535").attr("stroke-width",1.5);
+
+// ── PANEL HELPERS ────────────────────────────────────────────────────────────
+function hideAll() {
+  document.getElementById("tax-idle").style.display = "none";
+  document.getElementById("tax-cp").classList.remove("on");
+  document.getElementById("tax-gp").classList.remove("on");
+}
+
+function showIdle() {
+  document.getElementById("tax-idle").style.display = "";
+  document.getElementById("tax-cp").classList.remove("on");
+  document.getElementById("tax-gp").classList.remove("on");
+  document.getElementById("tax-center-title").innerHTML = "SUD<br>Treatment";
+}
+
+function showComp(comp, grp) {
+  hideAll();
+  document.getElementById("tax-cp").classList.add("on");
+  document.getElementById("tax-center-title").textContent = comp.abbr;
+
+  const tag = document.getElementById("tax-cp-tag");
+  tag.textContent = grp.label;
+  tag.style.background = grp.color + "22";
+  tag.style.color = grp.color;
+
+  const abbrEl = document.getElementById("tax-cp-abbr");
+  abbrEl.textContent = comp.abbr;
+  abbrEl.style.color = grp.color;
+
+  document.getElementById("tax-cp-full").textContent = comp.full;
+  document.getElementById("tax-cp-def").textContent  = comp.def;
+
+  const tagsEl = document.getElementById("tax-cp-tags");
+  tagsEl.innerHTML = "";
+  comp.examples.forEach(ex => {
+    const t = document.createElement("div");
+    t.className = "tag"; t.textContent = ex;
+    tagsEl.appendChild(t);
+  });
+}
+
+function showGroup(grp) {
+  hideAll();
+  document.getElementById("tax-gp").classList.add("on");
+  document.getElementById("tax-center-title").innerHTML = grp.label.replace(" & ","<br>&amp; ").split(" ").slice(0,2).join("<br>");
+
+  const title = document.getElementById("tax-gp-title");
+  title.textContent = grp.label;
+  title.style.color = grp.color;
+
+  const membersEl = document.getElementById("tax-gp-members");
+  membersEl.innerHTML = "";
+  grp.components.forEach(comp => {
+    const row = document.createElement("div");
+    row.className = "gp-member";
+    row.style.borderColor = grp.color + "44";
+    row.style.background  = grp.color + "0e";
+    row.innerHTML = `
+      <span class="gp-abbr-text" style="color:${grp.color}">${comp.abbr}</span>
+      <span class="gp-name">${comp.full}</span>`;
+    row.addEventListener("mouseenter", () => showComp(comp, grp));
+    membersEl.appendChild(row);
+  });
+}
+
+showIdle();
+}
+
+
+// Initialize taxonomy immediately since it's the default tab
+initTaxonomy();
+
+// ═════════════════════════════════════════════════════════════════════════
+// HEATMAP CODE
+// ═════════════════════════════════════════════════════════════════════════
+
+const profilesData = [{"id":"P1","nc":1,"na":39,"group":"multi","components":{"TA":0,"PSED":0,"CF":0,"RP":0,"GOAL":0,"FA":0,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":1,"RT":0,"SG":0,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Epstein 2003","combo":"Contingency Management"},{"author_year":"Festinger 2014","combo":"Contingency Management"},{"author_year":"Festinger 2014","combo":"Contingency Management"},{"author_year":"Ghitza 2007","combo":"Contingency Management"},{"author_year":"Ghitza 2007","combo":"Contingency Management"},{"author_year":"Ghitza 2007","combo":"Contingency Management"},{"author_year":"Hagedorn 2013","combo":"Contingency Management"},{"author_year":"Higgins 2003","combo":"Contingency Management"},{"author_year":"Landovitz 2015","combo":"Contingency Management"},{"author_year":"Ledgerwood 2006","combo":"Contingency Management"},{"author_year":"McDonnell 2013","combo":"Contingency Management"},{"author_year":"Menza 2010","combo":"Contingency Management"},{"author_year":"Miguel 2016","combo":"Contingency Management"},{"author_year":"Milby 2008","combo":"Contingency Management"},{"author_year":"Peirce 2006","combo":"Contingency Management"},{"author_year":"Petry 2002","combo":"Contingency Management"},{"author_year":"Petry 2005a","combo":"Contingency Management"},{"author_year":"Petry 2005b","combo":"Contingency Management"},{"author_year":"Petry 2007","combo":"Contingency Management"},{"author_year":"Petry 2007","combo":"Contingency Management"},{"author_year":"Petry 2012a","combo":"Contingency Management"},{"author_year":"Petry 2012b","combo":"Contingency Management"},{"author_year":"Petry 2012b","combo":"Contingency Management"},{"author_year":"Petry 2012b","combo":"Contingency Management"},{"author_year":"Petry 2012b","combo":"Contingency Management"},{"author_year":"Petry 2013","combo":"Contingency Management"},{"author_year":"Poling 2006","combo":"Contingency Management"},{"author_year":"Rawson 2002","combo":"Contingency Management"},{"author_year":"Rawson 2006","combo":"Contingency Management"},{"author_year":"Shoptaw 2005","combo":"Contingency Management"},{"author_year":"Silverman 1996","combo":"Contingency Management"},{"author_year":"Silverman 1998","combo":"Contingency Management"},{"author_year":"Silverman 1998","combo":"Contingency Management"},{"author_year":"Umbricht 2014","combo":"Contingency Management"},{"author_year":"Miguel 2022","combo":"Contingency Management"},{"author_year":"Petry 2015","combo":"Contingency Management"},{"author_year":"Petry 2015","combo":"Contingency Management"},{"author_year":"Petry 2015","combo":"Contingency Management"},{"author_year":"Petry 2018","combo":"Contingency Management"}],"combos":["Contingency Management"]},{"id":"P2","nc":16,"na":8,"group":"multi","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":0,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":1,"PEER":0,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Carroll 1994","combo":"Cognitive Behavioral Coping Skills Training"},{"author_year":"Carroll 1998","combo":"Cognitive Behavioral Coping Skills Training"},{"author_year":"Carroll 2016","combo":"Cognitive Behavioral Therapy"},{"author_year":"Dursteler-MacFarland 2013","combo":"Cognitive-Behavioral Group Therapy"},{"author_year":"Petitjean 2014","combo":"Cognitive Behavioral Therapy"},{"author_year":"Carroll 1991","combo":"Relapse Prevention Therapy"},{"author_year":"Carroll 2004","combo":"Cognitive Behavioral Therapy"},{"author_year":"McKee 2007","combo":"Cognitive Behavioral Therapy"}],"combos":["Cognitive Behavioral Therapy","Cognitive Behavioral Coping Skills Training","Cognitive-Behavioral Group Therapy","Relapse Prevention Therapy"]},{"id":"P3","nc":18,"na":6,"group":"multi","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":1,"RT":0,"SG":0,"AMB":1,"MEAN":0,"IDSELF":1,"MMT":0,"INT":1,"SS":1,"PEER":1,"FC":1,"VOC":0,"COMORB":0,"SUB":1},"arms":[{"author_year":"Rawson 2002","combo":"Cognitive Behavioral Therapy + Contingency Management"},{"author_year":"Rawson 2006","combo":"Cognitive Behavioral Therapy + Contingency Management"},{"author_year":"Roll 2013","combo":"Contingency Management + Psychosocial Treatment"},{"author_year":"Roll 2013","combo":"Contingency Management + Psychosocial Treatment"},{"author_year":"Roll 2013","combo":"Contingency Management + Psychosocial Treatment"},{"author_year":"Shoptaw 2005","combo":"Cognitive Behavioral Therapy + Contingency Management"}],"combos":["Cognitive Behavioral Therapy + Contingency Management","Contingency Management + Psychosocial Treatment"]},{"id":"P4","nc":15,"na":6,"group":"multi","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":1,"RT":1,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":1,"SUB":0},"arms":[{"author_year":"Garcia-Fernandez 2011","combo":"Community Reinforcement Approach + Contingency Management"},{"author_year":"Garcia-Rodriguez 2007","combo":"Community Reinforcement Approach + Contingency Management"},{"author_year":"Garcia-Rodriguez 2007","combo":"Community Reinforcement Approach + Contingency Management"},{"author_year":"Higgins 2000","combo":"Community Reinforcement Approach + Contingency Management"},{"author_year":"Schottenfeld 2011","combo":"Community Reinforcement Approach + Contingency Management"},{"author_year":"Secades Villa 2013","combo":"Community Reinforcement Approach + Contingency Management"}],"combos":["Community Reinforcement Approach + Contingency Management"]},{"id":"P5","nc":17,"na":4,"group":"multi","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":0,"AMB":1,"MEAN":0,"IDSELF":1,"MMT":0,"INT":1,"SS":1,"PEER":1,"FC":1,"VOC":0,"COMORB":0,"SUB":1},"arms":[{"author_year":"Rawson 2002","combo":"Cognitive Behavioral Therapy"},{"author_year":"Rawson 2006","combo":"Cognitive Behavioral Therapy"},{"author_year":"Roll 2013","combo":"Psychosocial Treatment"},{"author_year":"Shoptaw 2005","combo":"Cognitive Behavioral Therapy"}],"combos":["Cognitive Behavioral Therapy","Psychosocial Treatment"]},{"id":"P6","nc":15,"na":3,"group":"multi","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":0,"PSS":0,"EMOT":0,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":0,"INT":0,"SS":0,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Carroll 1998","combo":"Twelve-Step Facilitation"},{"author_year":"Carroll 2012","combo":"Twelve-Step Facilitation"},{"author_year":"Donovan 2013","combo":"Twelve-Step Facilitation"}],"combos":["Twelve-Step Facilitation"]},{"id":"P7","nc":14,"na":3,"group":"multi","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":1,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":1,"SUB":0},"arms":[{"author_year":"Garcia-Fernandez 2011","combo":"Community Reinforcement Approach"},{"author_year":"Higgins 2000","combo":"Community Reinforcement Approach"},{"author_year":"Schottenfeld 2011","combo":"Community Reinforcement Approach"}],"combos":["Community Reinforcement Approach"]},{"id":"P8","nc":17,"na":2,"group":"multi","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":0,"BA":1,"RPB":1,"RT":0,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":1,"PEER":0,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Carroll 2016","combo":"Cognitive Behavioral Therapy + Contingency Management"},{"author_year":"Petitjean 2014","combo":"Cognitive Behavioral Therapy + Contingency Management"}],"combos":["Cognitive Behavioral Therapy + Contingency Management"]},{"id":"P9","nc":13,"na":2,"group":"multi","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":1,"SUB":0},"arms":[{"author_year":"Sánchez-Hervás 2010","combo":"Community Reinforcement Approach"},{"author_year":"Secades Villa 2013","combo":"Community Reinforcement Approach"}],"combos":["Community Reinforcement Approach"]},{"id":"P10","nc":10,"na":2,"group":"multi","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":1,"RPB":1,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":0,"SUB":0},"arms":[{"author_year":"Higgins 1993","combo":"Community Reinforcement Approach + Contingency Management"},{"author_year":"Higgins 1994","combo":"Community Reinforcement Approach + Contingency Management"}],"combos":["Community Reinforcement Approach + Contingency Management"]},{"id":"P11","nc":10,"na":2,"group":"multi","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":1,"COG":0,"PSS":0,"EMOT":1,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":1,"MEAN":0,"IDSELF":1,"MMT":0,"INT":1,"SS":1,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Carroll 1991","combo":"Interpersonal Therapy"},{"author_year":"Carroll 2004","combo":"Interpersonal Therapy"}],"combos":["Interpersonal Therapy"]},{"id":"P12","nc":8,"na":2,"group":"multi","components":{"TA":0,"PSED":1,"CF":0,"RP":0,"GOAL":0,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Carroll 2014","combo":"Computer-Based Cognitive Behavioral Therapy"},{"author_year":"Carroll 2018","combo":"Computer-Based Cognitive Behavioral Therapy"}],"combos":["Computer-Based Cognitive Behavioral Therapy"]},{"id":"P13","nc":5,"na":2,"group":"multi","components":{"TA":0,"PSED":1,"CF":0,"RP":1,"GOAL":0,"FA":0,"CRAV":1,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":1,"SUB":1},"arms":[{"author_year":"Shoptaw 2005","combo":"Gay-specific Cognitive Behavioral Therapy"},{"author_year":"Shoptaw 2008","combo":"Gay-specific Cognitive Behavioral Therapy"}],"combos":["Gay-specific Cognitive Behavioral Therapy"]},{"id":"P14","nc":4,"na":2,"group":"multi","components":{"TA":1,"PSED":1,"CF":1,"RP":0,"GOAL":0,"FA":0,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Carroll 1994","combo":"Clinical Management"},{"author_year":"Carroll 1998","combo":"Clinical Management"}],"combos":["Clinical Management"]},{"id":"P15","nc":21,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":1,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":0,"INT":1,"SS":1,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Crits-Christoph 1999","combo":"Cognitive Therapy"}],"combos":["Cognitive Therapy"]},{"id":"P16","nc":18,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":1,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":1,"PEER":0,"FC":1,"VOC":1,"COMORB":0,"SUB":0},"arms":[{"author_year":"Smout 2010","combo":"Cognitive Behavioral Therapy"}],"combos":["Cognitive Behavioral Therapy"]},{"id":"P17","nc":18,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":0,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":0,"INT":1,"SS":1,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Crits-Christoph 1999","combo":"Supportive-Expressive Psychotherapy"}],"combos":["Supportive-Expressive Psychotherapy"]},{"id":"P18","nc":17,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":0,"PSS":0,"EMOT":1,"BA":1,"RPB":1,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":0,"INT":0,"SS":0,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Schottenfeld 2011","combo":"Contingency Management + Twelve-Step Facilitation"}],"combos":["Contingency Management + Twelve-Step Facilitation"]},{"id":"P19","nc":17,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":0,"MMT":0,"INT":0,"SS":1,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Crits-Christoph 1999","combo":"Individual Drug Counseling + Group Drug Counseling"}],"combos":["Individual Drug Counseling + Group Drug Counseling"]},{"id":"P20","nc":16,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":0,"PSS":0,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":0,"INT":0,"SS":0,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Schottenfeld 2011","combo":"Twelve-Step Facilitation"}],"combos":["Twelve-Step Facilitation"]},{"id":"P21","nc":16,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":0,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":0,"PSS":1,"EMOT":1,"BA":0,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":0,"MMT":0,"INT":1,"SS":1,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Crits-Christoph 1999","combo":"Group Drug Counseling"}],"combos":["Group Drug Counseling"]},{"id":"P22","nc":15,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":0,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":1,"SUB":1},"arms":[{"author_year":"Mimiaga 2019","combo":"Behavioral Activation + Sexual Risk Reduction Counselling"}],"combos":["Behavioral Activation + Sexual Risk Reduction Counselling"]},{"id":"P23","nc":15,"na":1,"group":"single","components":{"TA":0,"PSED":1,"CF":0,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":1,"RT":1,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Epstein 2003","combo":"Cognitive Behavioral Therapy + Contingency Management"}],"combos":["Cognitive Behavioral Therapy + Contingency Management"]},{"id":"P24","nc":15,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":1,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":1,"SG":1,"AMB":0,"MEAN":0,"IDSELF":1,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Maude-Griffin 1998","combo":"Cognitive Behavioral Therapy"}],"combos":["Cognitive Behavioral Therapy"]},{"id":"P25","nc":15,"na":1,"group":"single","components":{"TA":0,"PSED":1,"CF":1,"RP":1,"GOAL":1,"FA":0,"CRAV":0,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":1,"RT":1,"SG":1,"AMB":0,"MEAN":0,"IDSELF":1,"MMT":0,"INT":1,"SS":0,"PEER":1,"FC":0,"VOC":1,"COMORB":1,"SUB":0},"arms":[{"author_year":"Milby 2008","combo":"Contingency Management + Behavioral Day Treatment"}],"combos":["Contingency Management + Behavioral Day Treatment"]},{"id":"P26","nc":14,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":1,"COG":0,"PSS":0,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":0,"INT":0,"SS":0,"PEER":1,"FC":1,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Maude-Griffin 1998","combo":"Twelve-Step Facilitation"}],"combos":["Twelve-Step Facilitation"]},{"id":"P27","nc":14,"na":1,"group":"single","components":{"TA":0,"PSED":1,"CF":0,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":1,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Epstein 2003","combo":"Cognitive Behavioral Therapy"}],"combos":["Cognitive Behavioral Therapy"]},{"id":"P28","nc":14,"na":1,"group":"single","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":0,"PSS":1,"EMOT":1,"BA":1,"RPB":1,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":1,"SUB":0},"arms":[{"author_year":"Higgins 2003","combo":"Community Reinforcement Approach + Contingency Management"}],"combos":["Community Reinforcement Approach + Contingency Management"]},{"id":"P29","nc":13,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":0,"RP":1,"GOAL":1,"FA":1,"CRAV":0,"COG":1,"PSS":0,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":1,"MEAN":1,"IDSELF":1,"MMT":1,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Smout 2010","combo":"Acceptance and Commitment Therapy"}],"combos":["Acceptance and Commitment Therapy"]},{"id":"P30","nc":9,"na":1,"group":"single","components":{"TA":1,"PSED":0,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":0,"SUB":0},"arms":[{"author_year":"Higgins 1994","combo":"Community Reinforcement Approach"}],"combos":["Community Reinforcement Approach"]},{"id":"P31","nc":9,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":0,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":0,"MEAN":1,"IDSELF":0,"MMT":1,"INT":0,"SS":0,"PEER":1,"FC":1,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Higgins 1993","combo":"Twelve-Step Facilitation"}],"combos":["Twelve-Step Facilitation"]},{"id":"P32","nc":9,"na":1,"group":"single","components":{"TA":0,"PSED":1,"CF":0,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":1,"PSS":1,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":1,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"McKay 1997","combo":"Individualized Relapse Prevention Aftercare"}],"combos":["Individualized Relapse Prevention Aftercare"]},{"id":"P33","nc":8,"na":1,"group":"single","components":{"TA":0,"PSED":1,"CF":0,"RP":1,"GOAL":0,"FA":1,"CRAV":1,"COG":1,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":1,"VOC":1,"COMORB":0,"SUB":0},"arms":[{"author_year":"Sorsdahl 2021","combo":"Imaginal Desensitization + Motivational Interview"}],"combos":["Imaginal Desensitization + Motivational Interview"]},{"id":"P34","nc":8,"na":1,"group":"single","components":{"TA":1,"PSED":1,"CF":1,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":1,"PSS":0,"EMOT":1,"BA":1,"RPB":0,"RT":0,"SG":0,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Marsden 2018","combo":"Memory-Focused Cognitive Therapy"}],"combos":["Memory-Focused Cognitive Therapy"]},{"id":"P35","nc":6,"na":1,"group":"single","components":{"TA":0,"PSED":0,"CF":0,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":1,"RPB":1,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Kirby 1998","combo":"Cognitive-Behavioral Counseling + Contingency Management"}],"combos":["Cognitive-Behavioral Counseling + Contingency Management"]},{"id":"P36","nc":5,"na":1,"group":"single","components":{"TA":1,"PSED":0,"CF":0,"RP":1,"GOAL":0,"FA":0,"CRAV":1,"COG":0,"PSS":1,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"McKee 2007","combo":"Cognitive Behavioral Therapy + Motivational Enhancement Therapy"}],"combos":["Cognitive Behavioral Therapy + Motivational Enhancement Therapy"]},{"id":"P37","nc":5,"na":1,"group":"single","components":{"TA":0,"PSED":0,"CF":0,"RP":1,"GOAL":0,"FA":1,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":1,"RPB":0,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":1,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Kirby 1998","combo":"Cognitive-Behavioral Counseling"}],"combos":["Cognitive-Behavioral Counseling"]},{"id":"P38","nc":4,"na":1,"group":"single","components":{"TA":1,"PSED":0,"CF":0,"RP":0,"GOAL":0,"FA":0,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":1,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":1,"FC":0,"VOC":0,"COMORB":1,"SUB":0},"arms":[{"author_year":"Shoptaw 2008","combo":"Gay-specific Social Support Therapy"}],"combos":["Gay-specific Social Support Therapy"]},{"id":"P39","nc":4,"na":1,"group":"single","components":{"TA":0,"PSED":0,"CF":0,"RP":0,"GOAL":0,"FA":0,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":1,"SG":1,"AMB":1,"MEAN":0,"IDSELF":0,"MMT":1,"INT":0,"SS":0,"PEER":0,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Chen 2013","combo":"Integrative Mind-Body Meditation and Ear Acupuncture"}],"combos":["Integrative Mind-Body Meditation and Ear Acupuncture"]},{"id":"P40","nc":2,"na":1,"group":"single","components":{"TA":1,"PSED":0,"CF":0,"RP":0,"GOAL":0,"FA":0,"CRAV":0,"COG":0,"PSS":0,"EMOT":0,"BA":0,"RPB":0,"RT":0,"SG":0,"AMB":0,"MEAN":0,"IDSELF":0,"MMT":0,"INT":0,"SS":0,"PEER":1,"FC":0,"VOC":0,"COMORB":0,"SUB":0},"arms":[{"author_year":"Epstein 2003","combo":"Social Support"}],"combos":["Social Support"]}];
+
+const hmGroups = [
+  { id:"common",      label:"Common elements",                short:"Common",        color:"#5d85c3", members:["TA","PSED","CF","RP","GOAL"] },
+  { id:"symptoms",    label:"Substance-related symptoms",     short:"Substance",     color:"#df7060", members:["FA","CRAV","COG","PSS","EMOT"] },
+  { id:"behavioral",  label:"Behavioral techniques",          short:"Behavioral",    color:"#5cb896", members:["BA","RPB","RT","SG"] },
+  { id:"motivation",  label:"Motivation, identity & meaning", short:"Motivation",    color:"#c47ed4", members:["AMB","MEAN","IDSELF","MMT"] },
+  { id:"interpers",   label:"Interpersonal domain",           short:"Interpersonal", color:"#e09a3e", members:["INT","SS","PEER","FC","VOC"] },
+  { id:"subpop",      label:"Subpopulation-related issues",   short:"Subpopulation", color:"#5dbfd4", members:["COMORB","SUB"] },
+];
+
+const componentInfo = {
+  TA:     { full:"Therapeutic Relationship / Alliance",  def:"Explicit efforts to build a collaborative relationship between therapist and patient that aims to establish a positive emotional bond and agreement on treatment goals. Includes non-specific elements of therapy like instillation of hope and emotional support." },
+  PSED:   { full:"Psychoeducation",                       def:"Providing patients with information to better understand and manage their condition — the addiction model, medication management, general health education, harm reduction strategies, and therapeutic approaches." },
+  CF:     { full:"Case Formulation",                      def:"An individualized explanation of the development and maintenance of psychological symptoms, considering individual life history, predisposing factors, triggers, perpetuating factors, and individual strengths." },
+  RP:     { full:"Relapse Prevention",                    def:"Strategies to recognize and manage high-risk situations and maintain abstinence: identification of triggers, coping skills, crisis management plans, and preventing a full-blown relapse after a slip." },
+  GOAL:   { full:"Therapy Goal Setting",                  def:"Therapist and patient work collaboratively to inform an intervention plan and set the agenda and the goals of therapy." },
+  FA:     { full:"Functional Analysis",                   def:"Understanding the patterns of substance use by examining the antecedents/triggers, beliefs, and consequences associated with substance use (the ABC model)." },
+  CRAV:   { full:"Coping with Craving",                   def:"Strategies to manage cravings and urges to use, including craving management and urge control." },
+  COG:    { full:"Cognitive Restructuring",               def:"Identify cognitions related to substance use and reframe them. Includes cognitive restructuring of unhelpful patterns, imagery re-scripting, and enhancing cognitive control." },
+  PSS:    { full:"Problem-Solving & Decision-Making",     def:"The ability to identify problems, generate and evaluate potential solutions, and choose the most appropriate course of action, especially in high-risk situations." },
+  EMOT:   { full:"Emotion Recognition & Regulation",      def:"Strategies to manage stressful and difficult emotional situations: recognition of emotions, coping plans, and self-regulation including anger and anxiety management." },
+  BA:     { full:"Behavioral Activation & Modification",  def:"Encouraging engagement in meaningful and rewarding alternative activities to improve mood and/or replace substance-related habits." },
+  RPB:    { full:"Reinforcement of Positive Behaviors",   def:"The use of incentives (vouchers, prizes, cash), usually with escalating schedule, to encourage abstinence verified by substance-free urine samples." },
+  RT:     { full:"Relaxation Techniques",                 def:"Techniques aimed at reducing stress and relaxing the body, e.g. breathing exercises and relaxation training." },
+  SG:     { full:"Skills Generalization",                 def:"Assignments, homework, role-playing and other strategies used between sessions to enhance learning and generalization of skills." },
+  AMB:    { full:"Address Ambivalence & Motivation",      def:"A non-confrontational approach to enhance internal motivation to change, exploring and resolving ambivalence using the patient\'s own core values. Includes acceptance, addressing guilt/shame, and commitment to change." },
+  MEAN:   { full:"Address Spirituality & Meaning",        def:"Work on feelings of alienation; explore the patient\'s values and sense of purpose, including potential connection to something greater than themselves (religious or not)." },
+  IDSELF: { full:"Work on Identity & Self-Esteem",        def:"Work on issues related to personal identity, including processing losses and changes in identity related to sobriety, and enhancing self-efficacy and self-esteem." },
+  MMT:    { full:"Mindfulness & Meditation Techniques",   def:"Learn how to focus on the present moment and gain awareness of bodily sensations." },
+  INT:    { full:"Interpersonal Skills",                  def:"Clearly express thoughts, needs, and emotions and respond effectively, especially under stress. Includes assertiveness training, refusal skills, and working on interpersonal patterns." },
+  SS:     { full:"Establishing Social Support Systems",   def:"Enhance patients\' abilities to build and maintain supportive relationships with family, friends, peers, and community resources to enhance recovery." },
+  PEER:   { full:"Peer Support",                          def:"Support provided by people with lived experience of recovery from addiction through participation in self-help groups and group discussions." },
+  FC:     { full:"Relationship & Family Counselling",     def:"Involving family members or partners to address effects of substance use on relationships and to create a supportive environment for recovery." },
+  VOC:    { full:"Vocational Skills",                     def:"Training in skills needed for finding and maintaining a job, as well as planning financial issues." },
+  COMORB: { full:"Health & Comorbidities Management",     def:"Address SUDs other than the principal substance and other disorders, including psychiatric comorbidities and HIV." },
+  SUB:    { full:"Issues Related to Specific Populations",def:"Tailor intervention to meet the unique needs of specific populations, including the LGBTQ community and women." },
+};
+
+const columnOrder = [];
+hmGroups.forEach(g => g.members.forEach(m => columnOrder.push({abbr: m, group: g})));
+const compToGroup = {};
+columnOrder.forEach(c => compToGroup[c.abbr] = c.group);
+
+const multiProfiles  = profilesData.filter(p => p.group === 'multi');
+const singleProfiles = profilesData.filter(p => p.group === 'single');
+
+const TOTAL_PROFILES = profilesData.length;
+const TOTAL_ARMS = profilesData.reduce((s,p) => s+p.na, 0);
+
+const compStats = {};
+columnOrder.forEach(({abbr}) => {
+  let profileCount = 0, armCount = 0;
+  profilesData.forEach(p => {
+    if (p.components[abbr]) {
+      profileCount++;
+      armCount += p.na;
+    }
+  });
+  compStats[abbr] = { profileCount, armCount };
+});
+
+// Pinning
+let pinned = null;  // { kind: 'profile'|'component', key }
+function isPinned(kind, key) {
+  return pinned && pinned.kind === kind && pinned.key === key;
+}
+
+// Floating tooltip used when pinned
+const floatTip = document.getElementById('float-tip');
+function showFloatTip(html, x, y) {
+  floatTip.innerHTML = html;
+  floatTip.classList.add('on');
+  // position smartly
+  const tw = 280, th = 80;
+  let left = x + 14, top = y + 14;
+  if (left + tw > window.innerWidth) left = x - tw - 14;
+  if (top + th > window.innerHeight) top = y - th - 14;
+  floatTip.style.left = left + 'px';
+  floatTip.style.top = top + 'px';
+}
+function hideFloatTip() { floatTip.classList.remove('on'); }
+document.addEventListener('mousemove', e => {
+  if (floatTip.classList.contains('on')) {
+    const tw = 280;
+    let left = e.clientX + 14, top = e.clientY + 14;
+    if (left + tw > window.innerWidth) left = e.clientX - tw - 14;
+    if (top + 80 > window.innerHeight) top = e.clientY - 80 - 14;
+    floatTip.style.left = left + 'px';
+    floatTip.style.top = top + 'px';
+  }
+});
+
+function buildHeatmap(svgEl, profiles, rowLabelWidth) {
+  const CELL_W = 22, CELL_H = 18;
+  const ROW_LABEL_W = rowLabelWidth;
+  const COL_LABEL_H = 80;
+  const GROUP_BAND_H = 26;
+  const TOP_PAD = GROUP_BAND_H + COL_LABEL_H;
+  const LEFT_PAD = ROW_LABEL_W;
+  const BOTTOM_PAD = 18;
+  const RIGHT_PAD = 12;
+
+  const N_COLS = columnOrder.length;
+  const N_ROWS = profiles.length;
+  const GRID_W = N_COLS * CELL_W;
+  const GRID_H = N_ROWS * CELL_H;
+  const SVG_W = LEFT_PAD + GRID_W + RIGHT_PAD;
+  const SVG_H = TOP_PAD + GRID_H + BOTTOM_PAD;
+
+  svgEl.setAttribute("width", SVG_W);
+  svgEl.setAttribute("height", SVG_H);
+  svgEl.setAttribute("viewBox", `0 0 ${SVG_W} ${SVG_H}`);
+
+  const NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs = {}, parent = svgEl) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    parent.appendChild(e);
+    return e;
+  }
+
+  // Plot background
+  el("rect", {
+    x: LEFT_PAD - 2, y: TOP_PAD - 2,
+    width: GRID_W + 4, height: GRID_H + 4,
+    class: "plot-bg", rx: 3, ry: 3,
+  });
+
+  // Group bands
+  let xCursor = LEFT_PAD;
+  hmGroups.forEach(g => {
+    const w = g.members.length * CELL_W;
+    el("rect", {
+      x: xCursor, y: 0, width: w, height: GROUP_BAND_H - 6,
+      class: "group-band", fill: g.color, "fill-opacity": 0.85,
+      rx: 2, ry: 2,
+    });
+    xCursor += w;
+  });
+
+  // Column labels
+  columnOrder.forEach((c, i) => {
+    const cx = LEFT_PAD + i * CELL_W + CELL_W/2;
+    const cy = TOP_PAD - 8;
+    const t = el("text", {
+      x: cx, y: cy, "text-anchor": "start",
+      transform: `rotate(-60 ${cx} ${cy})`,
+      class: "col-label", "data-col": c.abbr, fill: c.group.color,
+    });
+    t.textContent = c.abbr;
+    t.addEventListener("mouseenter", (e) => {
+      if (pinned) {
+        const info = componentInfo[c.abbr];
+        showFloatTip(`<div class="tip-title">${c.abbr} — ${info.full}</div><div class="tip-sub">${c.group.label}</div>`, e.clientX, e.clientY);
+      } else {
+        showComponent(c.abbr);
+      }
+    });
+    t.addEventListener("mouseleave", () => {
+      if (pinned) hideFloatTip();
+      else clearHover();
+    });
+    t.addEventListener("click", (e) => {
+      e.stopPropagation();
+      hideFloatTip();
+      if (isPinned('component', c.abbr)) {
+        pinned = null;
+        clearHover();
+      } else {
+        pinned = { kind: 'component', key: c.abbr };
+        showComponent(c.abbr);
+      }
+    });
+  });
+
+  // Row labels
+  profiles.forEach((p, i) => {
+    const y = TOP_PAD + i * CELL_H + CELL_H/2 + 3;
+    const t = el("text", {
+      x: LEFT_PAD - 10, y, "text-anchor": "end",
+      class: "row-label", "data-row": p.id,
+    });
+    t.textContent = `${p.id}  (Nc=${p.nc}, Na=${p.na})`;
+    t.addEventListener("mouseenter", (e) => {
+      if (pinned) {
+        const ints = p.combos.slice(0, 2).join(' · ');
+        const more = p.combos.length > 2 ? ` (+${p.combos.length - 2} more)` : '';
+        showFloatTip(`<div class="tip-title">${p.id}</div><div class="tip-sub">${ints}${more} · N<sub>c</sub>=${p.nc}, N<sub>a</sub>=${p.na}</div>`, e.clientX, e.clientY);
+      } else {
+        showProfile(p.id);
+      }
+    });
+    t.addEventListener("mouseleave", () => {
+      if (pinned) hideFloatTip();
+      else clearHover();
+    });
+    t.addEventListener("click", (e) => {
+      e.stopPropagation();
+      hideFloatTip();
+      if (isPinned('profile', p.id)) {
+        pinned = null;
+        clearHover();
+      } else {
+        pinned = { kind: 'profile', key: p.id };
+        showProfile(p.id);
+      }
+    });
+  });
+
+  // Cells
+  profiles.forEach((p, ri) => {
+    columnOrder.forEach((c, ci) => {
+      const present = p.components[c.abbr];
+      const x = LEFT_PAD + ci * CELL_W;
+      const y = TOP_PAD + ri * CELL_H;
+      const r = el("rect", {
+        x: x + 1, y: y + 1,
+        width: CELL_W - 2, height: CELL_H - 2,
+        fill: present ? c.group.color : "var(--plot-bg-empty)",
+        class: "cell", "data-row": p.id, "data-col": c.abbr,
+        rx: 1.5, ry: 1.5,
+      });
+      r.addEventListener("mouseenter", (e) => {
+        if (pinned) {
+          const info = componentInfo[c.abbr];
+          const presentText = present ? "present" : "absent";
+          showFloatTip(`<div class="tip-title">${p.id} × ${c.abbr}</div><div class="tip-sub">${info.full} — ${presentText}</div>`, e.clientX, e.clientY);
+        } else {
+          showComponent(c.abbr);
+          highlightAxisLabels({ row: p.id, col: c.abbr });
+        }
+      });
+      r.addEventListener("mouseleave", () => {
+        if (pinned) hideFloatTip();
+        else clearHover();
+      });
+    });
+  });
+}
+
+buildHeatmap(document.getElementById("hm-multi"),  multiProfiles,  170);
+buildHeatmap(document.getElementById("hm-single"), singleProfiles, 170);
+
+// Legend
+const hmLegend = document.getElementById("hm-legend");
+hmGroups.forEach(g => {
+  const item = document.createElement("div");
+  item.className = "legend-item";
+  item.innerHTML = `<div class="legend-swatch" style="background:${g.color}"></div><span>${g.label}</span>`;
+  hmLegend.appendChild(item);
+});
+
+const hmIdleMsg = document.getElementById("hm-idle");
+const hmCpPanel = document.getElementById("hm-cp-panel");
+const hmPpPanel = document.getElementById("hm-pp-panel");
+
+function hideAllHmPanels() {
+  hmIdleMsg.style.display = "none";
+  hmCpPanel.classList.remove("on");
+  hmPpPanel.classList.remove("on");
+}
+
+function showComponent(abbr) {
+  hideAllHmPanels();
+  hmCpPanel.classList.add("on");
+  const info = componentInfo[abbr];
+  const grp = compToGroup[abbr];
+  const stats = compStats[abbr];
+
+  document.getElementById("hm-cp-pin-hint").style.display = isPinned('component', abbr) ? 'inline-flex' : 'none';
+
+  const tag = document.getElementById("hm-cp-tag");
+  tag.textContent = grp.label;
+  tag.style.background = `${grp.color}22`;
+  tag.style.color = grp.color;
+  tag.style.border = `1px solid ${grp.color}44`;
+
+  document.getElementById("hm-cp-abbr").textContent = abbr;
+  document.getElementById("hm-cp-abbr").style.color = grp.color;
+  document.getElementById("hm-cp-full").textContent = info.full;
+  document.getElementById("hm-cp-def").textContent = info.def;
+
+  const pcPct = Math.round(stats.profileCount / TOTAL_PROFILES * 100);
+  const acPct = Math.round(stats.armCount / TOTAL_ARMS * 100);
+  document.getElementById("hm-cp-pc").innerHTML = `<strong>${stats.profileCount}</strong> of ${TOTAL_PROFILES}`;
+  document.getElementById("hm-cp-pc-pct").textContent = `(${pcPct}%)`;
+  document.getElementById("hm-cp-ac").innerHTML = `<strong>${stats.armCount}</strong> of ${TOTAL_ARMS}`;
+  document.getElementById("hm-cp-ac-pct").textContent = `(${acPct}%)`;
+
+  dimCellsBy({ col: abbr });
+  highlightAxisLabels({ col: abbr });
+}
+
+function showProfile(pid) {
+  hideAllHmPanels();
+  hmPpPanel.classList.add("on");
+  const p = profilesData.find(x => x.id === pid);
+
+  document.getElementById("hm-pp-pin-hint").style.display = isPinned('profile', pid) ? 'inline-flex' : 'none';
+
+  document.getElementById("hm-pp-id").textContent = p.id;
+  document.getElementById("hm-pp-na-tag").textContent = p.group === 'multi' ? 'Multi-arm' : 'Single-arm';
+
+  // Intervention combinations
+  const intvList = document.getElementById("hm-pp-interventions");
+  intvList.innerHTML = "";
+  p.combos.forEach(combo => {
+    const div = document.createElement("div");
+    div.className = "pp-int-item";
+    div.textContent = combo;
+    intvList.appendChild(div);
+  });
+
+  document.getElementById("hm-pp-nc").textContent = p.nc;
+  document.getElementById("hm-pp-na").textContent = p.na;
+
+  const compsWrap = document.getElementById("hm-pp-comps");
+  compsWrap.innerHTML = "";
+  columnOrder.forEach(c => {
+    if (p.components[c.abbr]) {
+      const chip = document.createElement("span");
+      chip.className = "pp-comp-chip";
+      chip.textContent = c.abbr;
+      chip.style.background = `${c.group.color}22`;
+      chip.style.color = c.group.color;
+      chip.style.border = `1px solid ${c.group.color}44`;
+      compsWrap.appendChild(chip);
+    }
+  });
+
+  document.getElementById("hm-pp-arms-count").textContent = p.na;
+  const list = document.getElementById("hm-pp-arms");
+  list.innerHTML = "";
+  // Only show per-arm combo tag when the profile has >1 unique combination,
+  // since otherwise the combo is redundant with the section above.
+  const showComboPerArm = p.combos.length > 1;
+  p.arms.forEach(a => {
+    const div = document.createElement("div");
+    div.className = "arm-item";
+    if (showComboPerArm) {
+      div.innerHTML = `<div class="arm-author">${a.author_year}</div><div class="arm-combo">${a.combo}</div>`;
+    } else {
+      div.textContent = a.author_year;
+    }
+    list.appendChild(div);
+  });
+
+  dimCellsBy({ row: pid });
+  highlightAxisLabels({ row: pid });
+}
+
+function clearHover() {
+  document.querySelectorAll(".cell").forEach(c => c.classList.remove("dim"));
+  document.querySelectorAll(".row-label, .col-label").forEach(c => {
+    c.classList.remove("active");
+    c.classList.remove("pinned");
+  });
+  hideAllHmPanels();
+  hmIdleMsg.style.display = "block";
+}
+
+function dimCellsBy({ row, col }) {
+  document.querySelectorAll(".cell").forEach(c => {
+    const r = c.getAttribute("data-row");
+    const cc = c.getAttribute("data-col");
+    const keep = (row && r === row) || (col && cc === col);
+    c.classList.toggle("dim", !keep);
+  });
+}
+
+function highlightAxisLabels({ row, col }) {
+  document.querySelectorAll(".row-label").forEach(t => {
+    const id = t.getAttribute("data-row");
+    t.classList.toggle("active", row && id === row && !isPinned('profile', id));
+    t.classList.toggle("pinned", isPinned('profile', id));
+  });
+  document.querySelectorAll(".col-label").forEach(t => {
+    const ab = t.getAttribute("data-col");
+    t.classList.toggle("active", col && ab === col && !isPinned('component', ab));
+    t.classList.toggle("pinned", isPinned('component', ab));
+  });
+}
+</script>
+</body>
+</html>
